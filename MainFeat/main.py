@@ -19,6 +19,7 @@ app = Flask(__name__)
 
 latest_data = {}
 
+# Upload Data
 def upload_to_db(data):
     collection.insert_one(data)
 
@@ -54,7 +55,7 @@ def upload():
     upload_to_db(db_data)
     return jsonify({"status": "Data received"}), 200
 
-
+# Get Data
 def get_latest_5_minutes_data():
     curr_time = datetime.datetime.now()
     five_minutes_ago = curr_time - datetime.timedelta(minutes=5)
@@ -71,6 +72,31 @@ def average_data(data):
         avg_data[key] = sum([d[key] for d in data]) / len(data)
     return avg_data
 
+@app.route('/get_avg_data', methods=['GET'])
+def get_avg_data():
+    return jsonify(average_data(get_latest_5_minutes_data()))
+
+@app.route('/get_latest_data', methods=['GET'])
+def get_latest_data():
+    latest_data = collection.find_one(sort=[("timestamp", -1)])
+    latest_data.pop("_id")
+    return jsonify(latest_data)
+
+@app.route('/get_all_data', methods=['GET'])
+def get_all_data():
+    data = list(collection.find())
+    for d in data:
+        d.pop("_id")
+    return jsonify(data)
+
+@app.route('/get_5_minutes_data', methods=['GET'])
+def get_5_minutes_data():
+    data = get_latest_5_minutes_data()
+    for d in data:
+        d.pop("_id")
+    return jsonify(data)
+
+# Predict
 @app.route('/predict', methods=['POST'])
 def predict():
     features = average_data(get_latest_5_minutes_data())
@@ -94,9 +120,7 @@ def predict():
     
     return jsonify({"risk_level": risk_output, "features": features}), 200
 
-@app.route('/get_latest_data', methods=['GET'])
-def get_latest_data():
-    return jsonify(average_data(get_latest_5_minutes_data()))
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80)
+    app.run(host='0.0.0.0', port=800)
