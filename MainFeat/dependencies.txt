@@ -1,0 +1,8 @@
+Flask==3.0.3
+numpy==2.0.0
+Requests==2.32.3
+pickleshare==0.7.5
+imbalanced-learn==0.12.3
+pymongo==4.8.0
+xgboost==2.1.0
+python-dotenv==1.0.1
