@@ -4,13 +4,15 @@ import time
 from dotenv import load_dotenv
 import os
 import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
 
 load_dotenv()
 
 # API URLs
 predict_url = os.getenv('PREDICT_API') 
 upload_url = os.getenv('UPLOAD_API')
-get_data_url = os.getenv('GET_DATA_API')
+get_data_url = 'http://localhost:800/get_5_minutes_data'
 chat_url = os.getenv('CHAT_API')
 
 # Function to fetch the latest data
@@ -40,6 +42,27 @@ def create_gauge(title, value, min_value, max_value, threshold):
     )
     return fig
 
+def display_data(data, label, metric):
+    # Display min, max, avg, and line chart for each data
+    min_value = min(data)
+    max_value = max(data)
+    avg_value = np.mean(data)
+    latest_value = data[-1]
+    
+    col1, col2 = st.columns([0.3, 0.7])
+    
+    with col1:
+        st.metric(label, value = f"{latest_value:.2f} {metric}", delta=f"{(latest_value - data[-2]):.2f} {metric}", delta_color="normal")
+    
+    with col2:
+        st.write('Latest 5 Minutes Data')
+        col1, col2, col3 = st.columns(3)
+        col1.metric('Min', value=f"{min_value:.1f} {metric}")
+        col2.metric('Max', value=f"{max_value:.1f} {metric}")
+        col3.metric('Avg', value=f"{avg_value:.1f} {metric}")
+        
+    st.line_chart(data)
+
 # Maternal Risk Detection
 def main(age):
     st.title('Maternal Risk Detection')
@@ -48,17 +71,17 @@ def main(age):
 
     while True:
         data = fetch_data()
-        # Convert body temperature to Celsius and bs to mg/dL
-        if data:
-            data['body_temperature'] = (data['body_temperature'] - 32) * 5/9
-            data['bs'] = data['bs'] * 18
-        if data:
-            st.plotly_chart(create_gauge('Body Temperature', data['body_temperature'], 35, 42, 37.5))
-            st.plotly_chart(create_gauge('SpO2', data['spo2'], 70, 100, 90))
-            st.plotly_chart(create_gauge('Heart Rate', data['heart_rate'], 40, 180, 100))
-            st.plotly_chart(create_gauge('Blood Glucose', data['bs'], 50, 200, 150))
+        if len(data) == 0:
+            st.write('No data available. Please check the sensor connection.')
+        else:
+            df = pd.DataFrame(data)
+            display_data(list(df['body_temperature']), "Body Temperature", "°F")
+            display_data(list(df['spo2']), "SP02", "%")
+            display_data(list(df['heart_rate']), "Heart Rate", "bpm")
+            display_data(list(df['bs']), "Blood Sugar", "mg/dL")
+            
         
-        time.sleep(5)
+        time.sleep(10)
         st.rerun()
 
 if __name__ == '__main__':
