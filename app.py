@@ -16,7 +16,7 @@ get_all_data_url = os.getenv("GET_ALL_DATA_URL")
 get_5min_data_url = os.getenv("GET_5MIN_DATA_URL")
 get_avg_data_url = os.getenv("GET_AVG_DATA_URL")
 get_latest_data_url = os.getenv("GET_LATEST_DATA_URL")
-chat_url = os.getenv("CHAT_URL")
+chat_url = os.getenv("AI_CHAT_URL")
 
 
 # Function to fetch the latest data
@@ -115,35 +115,139 @@ def display_data(data, label, metric):
         unsafe_allow_html=True,
     )
 
+def spacer(len):
+    for i in range(len):
+        st.write("")
+
+def summary_section(df):
+    col1, col2 = st.columns(2)
+    with col1:
+        display_data(list(df["body_temperature"]), "Body Temperature", "°F")
+    with col2:
+        display_data(list(df['spo2']), "SPO2", "%")
+    spacer(3)
+    col3, col4 = st.columns(2)
+    with col3:
+        display_data(list(df['heart_rate']), "Heart Rate", "bpm")
+    with col4:
+        display_data(list(df['bs']), "Blood Sugar", "mg/dL") 
+
+def display_risk():
+    # risk_level = requests.post(predict_url, json={"age": st.session_state.age}).json()['risk_level']
+    risk_level = "Low Risk"
+    color_map = {
+        "Low Risk": "#00cc44",  # Green
+        "Medium Risk": "#ffcc00",  # Yellow
+        "High Risk": "#ff3333"  # Red
+    }
+    
+    icon_map = {
+        "Low Risk": "🟢",
+        "Medium Risk": "🟡",
+        "High Risk": "🔴"
+    }
+
+    st.markdown(
+        f"""
+        <style>
+        .risk-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px solid {color_map[risk_level]};
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px;
+        }}
+        .risk-category {{
+            font-size: 30px;
+            font-weight: bold;
+            color: {color_map[risk_level]};
+        }}
+        .risk-icon {{
+            font-size: 60px;
+        }}
+        .risk-probability {{
+            font-size: 20px;
+            color: gray;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        f"""
+        <div class="risk-container">
+            <div class="risk-icon">{icon_map[risk_level]}</div>
+            <div class="risk-category">{risk_level}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+def stream_generator(prompt):
+    response = requests.post(chat_url, json={"prompt": prompt}).json()["response"]
+    # Change \n to <br> for HTML rendering
+    response = response.replace("\n", "<br>")
+    yield response
+
+def chatbot():
+    st.title("Chatbot")
+    # Initialize chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    # Display chat messages from history on app rerun
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"], unsafe_allow_html=True)
+
+    # Accept user input
+    if prompt := st.chat_input("What is up?"):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        # Display user message in chat message container
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Display assistant response in chat message container
+        response_content = ""
+        with st.chat_message("assistant"):
+            for word in stream_generator(prompt):
+                response_content += word
+            st.markdown(response_content.replace("<br>", "  \n"), unsafe_allow_html=True)
+        
+        # Add assistant response to chat history
+        st.session_state.messages.append({"role": "assistant", "content": response_content.replace("<br>", "  \n")})
 
 # Maternal Risk Detection
 def main(age):
-    st.title("Maternal Risk Detection")
-    st.write(
-        "This is a simple web application to detect the risk level of maternal health."
-    )
-
+    st.title("Maternal Risk Detection 🤰")
+    with st.expander("About"):
+        st.write(
+            """
+            This application is built to help detect the risk level of maternal health. 
+            It uses the data from the sensors to predict the risk level of the patient. 
+            The risk level is classified into three categories: Low Risk, Medium Risk, and High Risk.
+            
+            Chatbot is available on the sidebar to help you with any questions related to maternal health.
+            """
+        )
+    with st.sidebar:
+        chatbot()
     while True:
         data = fetch_data()
+        data = pd.DataFrame(data)
         if len(data) == 0:
             st.write("No data available. Please check the sensor connection.")
         else:
-            df = pd.DataFrame(data)
-            col1, col2 = st.columns(2)
-            with col1:
-                display_data(list(df["body_temperature"]), "Body Temperature", "°F")
-            with col2:
-                display_data(list(df['spo2']), "SPO2", "%")
-            st.write("")
-            st.write("")
-            st.write("")
-            col3, col4 = st.columns(2)
-            with col3:
-                display_data(list(df['heart_rate']), "Heart Rate", "bpm")
-            with col4:
-                display_data(list(df['bs']), "Blood Sugar", "mg/dL") 
+            display_risk()
+            spacer(3)
+            summary_section(data)
+            spacer(3)
 
-        time.sleep(10)
+        time.sleep(3)
         st.rerun()
 
 
