@@ -80,6 +80,9 @@ st.markdown(
 )
 
 def display_data(data, label, metric):
+    if(len(data) == 0):
+        st.error("Error: No data in the last 5 minutes. Please check the sensor connection.")
+        return
     # Display min, max, avg, and line chart for each data
     min_value = min(data)
     max_value = max(data)
@@ -133,8 +136,11 @@ def summary_section(df):
         display_data(list(df['bs']), "Blood Sugar", "mg/dL") 
 
 def display_risk():
-    # risk_level = requests.post(predict_url, json={"age": st.session_state.age}).json()['risk_level']
-    risk_level = "Low Risk"
+    risk_level = requests.post(predict_url, json={"age": st.session_state.age})
+    if(risk_level.status_code == 404):
+        st.error("Error: No data in the last 5 minutes. Please check the sensor connection.")
+        return
+    risk_level = risk_level.json()["risk_level"]
     color_map = {
         "Low Risk": "#00cc44",  # Green
         "Medium Risk": "#ffcc00",  # Yellow
@@ -220,10 +226,59 @@ def chatbot():
         
         # Add assistant response to chat history
         st.session_state.messages.append({"role": "assistant", "content": response_content.replace("<br>", "  \n")})
+        # st.rerun()
+
+def graph_menu(data):
+    # Checkbox for type of data to display (Spo2, Heart Rate, Body Temperature, Blood Sugar)
+    graph_col1, graph_col2 = st.columns([0.2, 0.8])
+    
+    with graph_col1:
+        spo2_check = st.checkbox("SPO2", value=True, key="spo2")
+        hr_check = st.checkbox("Heart Rate", value=True, key="heart_rate")
+        body_temp_check = st.checkbox("Body Temperature", value=True, key="body_temperature")
+        bs_check = st.checkbox("Blood Sugar", value=True, key="bs")
+        
+        selected_columns = []
+        if spo2_check:
+            selected_columns.append("spo2")
+        if hr_check:
+            selected_columns.append("heart_rate")
+        if body_temp_check:
+            selected_columns.append("body_temperature")
+        if bs_check:
+            selected_columns.append("bs")
+        selected_columns.append("timestamp")
+        
+        # Filter selected columns
+        selected_data = data.loc[:, selected_columns].copy()  # Use .loc and make a copy
+        
+        # Convert 'timestamp' column to pandas datetime
+        selected_data['timestamp'] = pd.to_datetime(selected_data['timestamp'])
+        
+        # Adjust for GMT+7 timezone
+        selected_data['timestamp'] = selected_data['timestamp'] + pd.DateOffset(hours=7)
+        
+        # Set 'timestamp' as the index
+        selected_data.set_index("timestamp", inplace=True)
+        
+        # Timeframe selection
+        timeframes = ["1 Hour", "1 Day", "1 Week"]
+        timeframe = st.selectbox("Select Timeframe", timeframes)
+        
+        # Filter data based on the selected timeframe
+        if timeframe == "1 Hour":
+            selected_data = selected_data[selected_data.index >= pd.Timestamp.now() - pd.DateOffset(hours=1)]
+        elif timeframe == "1 Day":
+            selected_data = selected_data[selected_data.index >= pd.Timestamp.now() - pd.DateOffset(days=1)]
+        elif timeframe == "1 Week":
+            selected_data = selected_data[selected_data.index >= pd.Timestamp.now() - pd.DateOffset(weeks=1)]
+    
+    with graph_col2:
+        st.line_chart(data=selected_data)
 
 # Maternal Risk Detection
-def main(age):
-    st.title("Maternal Risk Detection 🤰")
+def main():
+    st.title("Maternal Risk Detection 🤱🏻")
     with st.expander("About"):
         st.write(
             """
@@ -238,18 +293,20 @@ def main(age):
         chatbot()
     while True:
         data = fetch_data()
+        data_5_min = requests.get(get_5min_data_url).json()
         data = pd.DataFrame(data)
+        data_5_min = pd.DataFrame(data_5_min)
         if len(data) == 0:
             st.write("No data available. Please check the sensor connection.")
         else:
             display_risk()
             spacer(3)
-            summary_section(data)
+            summary_section(data_5_min)
             spacer(3)
+            graph_menu(data)
 
-        time.sleep(3)
+        time.sleep(10)
         st.rerun()
-
 
 if __name__ == "__main__":
     if "age" not in st.session_state:
@@ -263,4 +320,4 @@ if __name__ == "__main__":
             st.session_state.age = age
             st.rerun()  # Rerun to update the state and proceed to main app
     else:
-        main(st.session_state.age)
+        main()
