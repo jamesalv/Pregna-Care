@@ -48,7 +48,7 @@ def upload():
     db_data = {
         "timestamp": datetime.datetime.now(),
         "bs": get_blood_glucose(latest_data['spo2'], latest_data['heart_rate']),
-        "body_temperature": convert_to_fahrenheit(latest_data['body_temperature']),
+        "body_temperature": latest_data['body_temperature'],
         "heart_rate": latest_data['heart_rate'],
         "spo2": latest_data['spo2'],
     }
@@ -107,6 +107,9 @@ def predict():
     # Get age from user input
     age = request.get_json(force=True)['age']
     features['age'] = age
+    
+    # Convert body temperature to fahrenheit
+    features['body_temperature'] = convert_to_fahrenheit(features['body_temperature'])
     print(features) 
     
     # Predict the risk level
