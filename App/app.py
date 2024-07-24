@@ -125,7 +125,7 @@ def spacer(len):
 def summary_section(df):
     col1, col2 = st.columns(2)
     with col1:
-        display_data(list(df["body_temperature"]), "Body Temperature", "°F")
+        display_data(list(df["body_temperature"]), "Body Temperature", "°C")
     with col2:
         display_data(list(df['spo2']), "SPO2", "%")
     spacer(3)
