@@ -23,6 +23,7 @@ long lastBeat = 0; //Time at which the last beat occurred
 float beatsPerMinute;
 int beatAvg;
 
+int tcounter =0;
 int counter = 0;
 int beatSum = 0;
 double temperatureSum = 0;
@@ -191,7 +192,7 @@ void dorAPI(void* pvParameters){
     http.addHeader("Content-Type", "application/json");
     char postString[150];
     if(counter != 0){
-      temperatureToSend = temperatureSum / counter;
+      temperatureToSend = temperatureSum / tcounter;
       beatToSend = beatSum / counter;
       spo2ToSend = spo2Sum / counter;\
       sprintf(postString, "{\"body_temperature\":%.2lf,\"spo2\":%.2lf, \"heart_rate\":%d}",temperatureToSend, spo2ToSend, beatToSend);
@@ -200,8 +201,7 @@ void dorAPI(void* pvParameters){
       Serial.println(httpResponseCode);
       Serial.println(postString);
     }
-    beatToSend = temperatureToSend = spo2ToSend = beatSum = temperatureSum = spo2Sum = 0;
-    counter = 0;
+    beatToSend = temperatureToSend = spo2ToSend = beatSum = temperatureSum = spo2Sum = tcounter = counter = 0;
     delay(10000);
   }
 
@@ -210,15 +210,18 @@ void dorAPI(void* pvParameters){
 void loop(){
   bpmCode();
   // Serial.print("Bpm:" + String(beatAvg));  
-  // if (beatAvg > 30)  Serial.print(",SPO2:" + String(ESpO2) + " ");
-  // else Serial.print(",SPO2:" + String(ESpO2) + " ");
+  // if (beatAvg > 30)  Serial.println(",SPO2:" + String(ESpO2) + " ");
+  // else Serial.println(",SPO2:" + String(ESpO2) + " ");
   // Serial.print(temperatureC);
   // Serial.println("ºC ");
-  if(beatAvg != 0 && temperatureC != 0 && ESpO2 != 0){
+  if(beatAvg != 0 && ESpO2 != 0){
     counter++;
     beatSum += beatAvg;
-    temperatureSum += temperatureC;
     spo2Sum += ESpO2;
+  }
+  if(temperatureC >= 0){
+    tcounter++;
+    temperatureSum += temperatureC;
   }
 }
 
